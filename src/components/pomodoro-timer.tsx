@@ -43,11 +43,16 @@ export function PomodoroTimer() {
   const [focusCycle, setFocusCycle] = useState<number>(0);
   const [contributionData, setContributionData] = useState<ContributionData>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
   const synth = useRef<Tone.Synth | null>(null);
 
   // This effect runs only on the client, after the initial render.
   useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+
     // Load state from localStorage.
     const savedSettings = getFromLocalStorage('pomodoroSettings', DEFAULT_SETTINGS);
     setSettings(savedSettings);
@@ -99,6 +104,11 @@ export function PomodoroTimer() {
     // The empty dependency array ensures this effect runs only once after the component mounts.
   }, []);
 
+  const showNotification = useCallback((title: string, body: string) => {
+    if (notificationPermission === 'granted') {
+        new Notification(title, { body });
+    }
+  }, [notificationPermission]);
 
   const handleTimerEnd = useCallback(() => {
     synth.current?.triggerAttackRelease('C5', '8n');
@@ -124,13 +134,16 @@ export function PomodoroTimer() {
 
       if (nextCycle % 4 === 0) {
         setMode('longBreak');
+        showNotification('Focus Complete!', `Time for a ${settings.longBreak}-minute long break.`);
       } else {
         setMode('shortBreak');
+        showNotification('Focus Complete!', `Time for a ${settings.shortBreak}-minute short break.`);
       }
     } else {
       setMode('focus');
+      showNotification("Break's Over!", "Time to get back to focus.");
     }
-  }, [mode, settings, focusCycle, contributionData]);
+  }, [mode, settings, focusCycle, contributionData, showNotification]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -200,6 +213,15 @@ export function PomodoroTimer() {
     }
   };
 
+  const handleStartPauseClick = () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+            setNotificationPermission(permission);
+        });
+    }
+    setIsActive(!isActive);
+  };
+
 
   return (
     <Card className="w-full max-w-2xl shadow-2xl bg-card">
@@ -221,7 +243,7 @@ export function PomodoroTimer() {
           {formatTime(timeLeft)}
         </div>
         <div className="flex gap-4">
-          <Button onClick={() => setIsActive(!isActive)} size="lg" className="w-36 bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button onClick={handleStartPauseClick} size="lg" className="w-36 bg-primary text-primary-foreground hover:bg-primary/90">
             {isActive ? <Pause className="mr-2 h-5 w-5" /> : <Play className="mr-2 h-5 w-5" />}
             {isActive ? 'Pause' : 'Start'}
           </Button>
