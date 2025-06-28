@@ -35,19 +35,33 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
 };
 
 export function PomodoroTimer() {
-  const [settings, setSettings] = useState<TimerSettings>(() => getFromLocalStorage('pomodoroSettings', DEFAULT_SETTINGS));
+  // Initialize state with server-renderable default values to prevent hydration errors.
+  const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS);
   const [mode, setMode] = useState<PomodoroMode>('focus');
-  const [timeLeft, setTimeLeft] = useState(settings.focus * 60);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_SETTINGS.focus * 60);
   const [isActive, setIsActive] = useState(false);
-  const [focusCycle, setFocusCycle] = useState<number>(() => getFromLocalStorage('pomodoroCycle', 0));
-  const [contributionData, setContributionData] = useState<ContributionData>(() => getFromLocalStorage('pomodoroHistory', {}));
+  const [focusCycle, setFocusCycle] = useState<number>(0);
+  const [contributionData, setContributionData] = useState<ContributionData>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const synth = useRef<Tone.Synth | null>(null);
 
+  // This effect runs only on the client, after the initial render.
   useEffect(() => {
+    // Load state from localStorage.
+    const savedSettings = getFromLocalStorage('pomodoroSettings', DEFAULT_SETTINGS);
+    setSettings(savedSettings);
+
+    const savedCycle = getFromLocalStorage('pomodoroCycle', 0);
+    setFocusCycle(savedCycle);
+
+    const savedHistory = getFromLocalStorage('pomodoroHistory', {});
+    setContributionData(savedHistory);
+    
+    // Initialize Tone.js synth for audio feedback.
     synth.current = new Tone.Synth().toDestination();
 
+    // Sync data with the backend after loading local data.
     const syncWithBackend = async () => {
       try {
         const [settingsResponse, historyResponse] = await Promise.all([
@@ -75,13 +89,16 @@ export function PomodoroTimer() {
         } else {
             console.error("Failed to fetch contribution history.");
         }
-      } catch (error) {
+      } catch (error)
+      {
         console.error('Failed to sync data with backend', error);
       }
     };
     
     syncWithBackend();
+    // The empty dependency array ensures this effect runs only once after the component mounts.
   }, []);
+
 
   const handleTimerEnd = useCallback(() => {
     synth.current?.triggerAttackRelease('C5', '8n');
@@ -204,7 +221,7 @@ export function PomodoroTimer() {
           {formatTime(timeLeft)}
         </div>
         <div className="flex gap-4">
-          <Button onClick={() => setIsActive(!isActive)} size="lg" className="w-36 bg-accent hover:bg-accent/90 text-accent-foreground">
+          <Button onClick={() => setIsActive(!isActive)} size="lg" className="w-36 bg-primary text-primary-foreground hover:bg-primary/90">
             {isActive ? <Pause className="mr-2 h-5 w-5" /> : <Play className="mr-2 h-5 w-5" />}
             {isActive ? 'Pause' : 'Start'}
           </Button>
