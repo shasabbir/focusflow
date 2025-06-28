@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Tone from 'tone';
+import { useTheme } from 'next-themes';
 import { Play, Pause, RotateCcw, Settings, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ContributionGraph } from '@/components/contribution-graph';
 import { formatTime, type PomodoroMode, type TimerSettings, type ContributionData, APPS_SCRIPT_URL } from '@/lib/pomodoro';
 import { format } from 'date-fns';
@@ -19,22 +21,34 @@ const DEFAULT_SETTINGS: TimerSettings = {
   longBreak: 15,
 };
 
+const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
+    if (typeof window === 'undefined') {
+        return defaultValue;
+    }
+    try {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+        console.error(`Error reading from localStorage key “${key}”:`, error);
+        return defaultValue;
+    }
+};
+
 export function PomodoroTimer() {
-  const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<TimerSettings>(() => getFromLocalStorage('pomodoroSettings', DEFAULT_SETTINGS));
   const [mode, setMode] = useState<PomodoroMode>('focus');
   const [timeLeft, setTimeLeft] = useState(settings.focus * 60);
   const [isActive, setIsActive] = useState(false);
-  const [focusCycle, setFocusCycle] = useState(0);
-  const [contributionData, setContributionData] = useState<ContributionData>({});
+  const [focusCycle, setFocusCycle] = useState<number>(() => getFromLocalStorage('pomodoroCycle', 0));
+  const [contributionData, setContributionData] = useState<ContributionData>(() => getFromLocalStorage('pomodoroHistory', {}));
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const synth = useRef<Tone.Synth | null>(null);
 
   useEffect(() => {
-    // Client-side only initialization
     synth.current = new Tone.Synth().toDestination();
-    
-    const loadData = async () => {
+
+    const syncWithBackend = async () => {
       try {
         const [settingsResponse, historyResponse] = await Promise.all([
           fetch(`${APPS_SCRIPT_URL}?action=getAllDurations`),
@@ -49,28 +63,24 @@ export function PomodoroTimer() {
             longBreak: remoteSettings.longBreak / 60,
           };
           setSettings(newSettings);
+          localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
         } else {
-            console.error("Failed to fetch settings, using default.");
+            console.error("Failed to fetch settings, using local/default.");
         }
         
         if (historyResponse.ok) {
           const historyData = await historyResponse.json();
           setContributionData(historyData);
+          localStorage.setItem('pomodoroHistory', JSON.stringify(historyData));
         } else {
             console.error("Failed to fetch contribution history.");
         }
       } catch (error) {
-        console.error('Failed to load data from backend', error);
+        console.error('Failed to sync data with backend', error);
       }
     };
     
-    loadData();
-
-    // Focus cycle is not part of the backend, so we can keep it in local storage.
-    const savedCycle = localStorage.getItem('pomodoroCycle');
-    if (savedCycle) {
-      setFocusCycle(JSON.parse(savedCycle));
-    }
+    syncWithBackend();
   }, []);
 
   const handleTimerEnd = useCallback(() => {
@@ -81,12 +91,13 @@ export function PomodoroTimer() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const focusDuration = settings.focus;
 
-      // Update local state immediately for UI responsiveness
-      const newContribution = (contributionData[today] || 0) + focusDuration;
-      const updatedContributions = { ...contributionData, [today]: newContribution };
+      const updatedContributions = { 
+          ...contributionData, 
+          [today]: (contributionData[today] || 0) + focusDuration 
+      };
       setContributionData(updatedContributions);
+      localStorage.setItem('pomodoroHistory', JSON.stringify(updatedContributions));
       
-      // Persist to backend
       fetch(`${APPS_SCRIPT_URL}?action=incrementHistory&key=${today}&value=${focusDuration}`)
         .catch(error => console.error('Failed to save contribution', error));
 
@@ -143,28 +154,27 @@ export function PomodoroTimer() {
   }, [mode, settings, resetTimer]);
   
   const handleModeChange = (newMode: string) => {
-    if (newMode === 'focus' || newMode === 'shortBreak' || newMode === 'longBreak') {
+    if (['focus', 'shortBreak', 'longBreak'].includes(newMode)) {
         setIsActive(false);
         setMode(newMode as PomodoroMode);
     }
   };
 
-  const handleSettingsSave = async (newSettings: TimerSettings) => {
+  const handleSettingsSave = (newSettings: TimerSettings) => {
     setIsSettingsOpen(false);
     
-    // Optimistically update UI so it feels responsive
     setSettings(newSettings);
+    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
 
-    try {
-        await Promise.all([
-            fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=focus&value=${newSettings.focus * 60}`),
-            fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=break&value=${newSettings.shortBreak * 60}`),
-            fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=longBreak&value=${newSettings.longBreak * 60}`),
-        ]);
-    } catch (error) {
+    const backendPromise = Promise.all([
+        fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=focus&value=${newSettings.focus * 60}`),
+        fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=break&value=${newSettings.shortBreak * 60}`),
+        fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=longBreak&value=${newSettings.longBreak * 60}`),
+    ]);
+
+    backendPromise.catch(error => {
         console.error('Failed to save settings to backend', error);
-        // Could revert here or show an error toast
-    }
+    });
   };
 
   const skipToNext = () => {
@@ -175,7 +185,7 @@ export function PomodoroTimer() {
 
 
   return (
-    <Card className="w-full max-w-2xl shadow-2xl">
+    <Card className="w-full max-w-2xl shadow-2xl bg-card">
       <CardHeader className="items-center">
         <div className="flex justify-between items-center w-full">
             <h1 className="text-2xl font-bold">FocusFlow</h1>
@@ -215,15 +225,16 @@ export function PomodoroTimer() {
 }
 
 
-function SettingsDialog({ initialSettings, onSave, open, onOpenChange }: { initialSettings: TimerSettings, onSave: (settings: TimerSettings) => Promise<void>, open: boolean, onOpenChange: (open: boolean) => void }) {
+function SettingsDialog({ initialSettings, onSave, open, onOpenChange }: { initialSettings: TimerSettings, onSave: (settings: TimerSettings) => void, open: boolean, onOpenChange: (open: boolean) => void }) {
   const [tempSettings, setTempSettings] = useState(initialSettings);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     setTempSettings(initialSettings);
   }, [initialSettings]);
 
-  const handleSaveClick = async () => {
-    await onSave(tempSettings);
+  const handleSaveClick = () => {
+    onSave(tempSettings);
   };
   
   return (
@@ -249,6 +260,27 @@ function SettingsDialog({ initialSettings, onSave, open, onOpenChange }: { initi
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="longBreak" className="text-right">Long Break</Label>
             <Input id="longBreak" type="number" value={tempSettings.longBreak} onChange={(e) => setTempSettings({...tempSettings, longBreak: Number(e.target.value)})} className="col-span-3" />
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">Theme</Label>
+            <RadioGroup
+              value={theme}
+              onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
+              className="col-span-3 flex items-center space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="light" id="r1" />
+                <Label htmlFor="r1">Light</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="dark" id="r2" />
+                <Label htmlFor="r2">Dark</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="system" id="r3" />
+                <Label htmlFor="r3">System</Label>
+              </div>
+            </RadioGroup>
           </div>
         </div>
         <DialogFooter>
