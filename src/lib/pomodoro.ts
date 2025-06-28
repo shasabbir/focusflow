@@ -1,3 +1,5 @@
+export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxRLznvfGO_bMX1sMymAbS96Mye-Qd2j7QiBf7CcOGK-tE1M7L7qN4iYXpDks02l-NqlA/exec';
+
 export type PomodoroMode = 'focus' | 'shortBreak' | 'longBreak';
 
 export type TimerSettings = {

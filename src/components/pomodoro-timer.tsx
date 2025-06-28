@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ContributionGraph } from '@/components/contribution-graph';
-import { formatTime, type PomodoroMode, type TimerSettings, type ContributionData } from '@/lib/pomodoro';
+import { formatTime, type PomodoroMode, type TimerSettings, type ContributionData, APPS_SCRIPT_URL } from '@/lib/pomodoro';
 import { format } from 'date-fns';
 
 const DEFAULT_SETTINGS: TimerSettings = {
@@ -34,18 +34,39 @@ export function PomodoroTimer() {
     // Client-side only initialization
     synth.current = new Tone.Synth().toDestination();
     
-    const savedSettings = localStorage.getItem('pomodoroSettings');
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
-      setSettings(parsedSettings);
-      setTimeLeft(parsedSettings.focus * 60);
-    }
+    const loadData = async () => {
+      try {
+        const [settingsResponse, historyResponse] = await Promise.all([
+          fetch(`${APPS_SCRIPT_URL}?action=getAllDurations`),
+          fetch(`${APPS_SCRIPT_URL}?action=getHistory`),
+        ]);
 
-    const savedContributions = localStorage.getItem('pomodoroContributions');
-    if (savedContributions) {
-      setContributionData(JSON.parse(savedContributions));
-    }
+        if (settingsResponse.ok) {
+          const remoteSettings = await settingsResponse.json();
+          const newSettings: TimerSettings = {
+            focus: remoteSettings.focus / 60,
+            shortBreak: remoteSettings.break / 60,
+            longBreak: remoteSettings.longBreak / 60,
+          };
+          setSettings(newSettings);
+        } else {
+            console.error("Failed to fetch settings, using default.");
+        }
+        
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          setContributionData(historyData);
+        } else {
+            console.error("Failed to fetch contribution history.");
+        }
+      } catch (error) {
+        console.error('Failed to load data from backend', error);
+      }
+    };
+    
+    loadData();
 
+    // Focus cycle is not part of the backend, so we can keep it in local storage.
     const savedCycle = localStorage.getItem('pomodoroCycle');
     if (savedCycle) {
       setFocusCycle(JSON.parse(savedCycle));
@@ -58,10 +79,16 @@ export function PomodoroTimer() {
 
     if (mode === 'focus') {
       const today = format(new Date(), 'yyyy-MM-dd');
-      const newContribution = (contributionData[today] || 0) + settings.focus;
+      const focusDuration = settings.focus;
+
+      // Update local state immediately for UI responsiveness
+      const newContribution = (contributionData[today] || 0) + focusDuration;
       const updatedContributions = { ...contributionData, [today]: newContribution };
       setContributionData(updatedContributions);
-      localStorage.setItem('pomodoroContributions', JSON.stringify(updatedContributions));
+      
+      // Persist to backend
+      fetch(`${APPS_SCRIPT_URL}?action=incrementHistory&key=${today}&value=${focusDuration}`)
+        .catch(error => console.error('Failed to save contribution', error));
 
       const nextCycle = focusCycle + 1;
       setFocusCycle(nextCycle);
@@ -122,22 +149,21 @@ export function PomodoroTimer() {
     }
   };
 
-  const handleSettingsSave = (newSettings: TimerSettings) => {
-    setSettings(newSettings);
-    localStorage.setItem('pomodoroSettings', JSON.stringify(newSettings));
+  const handleSettingsSave = async (newSettings: TimerSettings) => {
     setIsSettingsOpen(false);
-    // Reset current timer if mode is active or not
-    setIsActive(false);
-    switch (mode) {
-      case 'focus':
-        setTimeLeft(newSettings.focus * 60);
-        break;
-      case 'shortBreak':
-        setTimeLeft(newSettings.shortBreak * 60);
-        break;
-      case 'longBreak':
-        setTimeLeft(newSettings.longBreak * 60);
-        break;
+    
+    // Optimistically update UI so it feels responsive
+    setSettings(newSettings);
+
+    try {
+        await Promise.all([
+            fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=focus&value=${newSettings.focus * 60}`),
+            fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=break&value=${newSettings.shortBreak * 60}`),
+            fetch(`${APPS_SCRIPT_URL}?action=updateDuration&key=longBreak&value=${newSettings.longBreak * 60}`),
+        ]);
+    } catch (error) {
+        console.error('Failed to save settings to backend', error);
+        // Could revert here or show an error toast
     }
   };
 
@@ -189,15 +215,15 @@ export function PomodoroTimer() {
 }
 
 
-function SettingsDialog({ initialSettings, onSave, open, onOpenChange }: { initialSettings: TimerSettings, onSave: (settings: TimerSettings) => void, open: boolean, onOpenChange: (open: boolean) => void }) {
+function SettingsDialog({ initialSettings, onSave, open, onOpenChange }: { initialSettings: TimerSettings, onSave: (settings: TimerSettings) => Promise<void>, open: boolean, onOpenChange: (open: boolean) => void }) {
   const [tempSettings, setTempSettings] = useState(initialSettings);
 
   useEffect(() => {
     setTempSettings(initialSettings);
   }, [initialSettings]);
 
-  const handleSaveClick = () => {
-    onSave(tempSettings);
+  const handleSaveClick = async () => {
+    await onSave(tempSettings);
   };
   
   return (
