@@ -30,6 +30,7 @@ const longBreakInput = document.getElementById('longBreakInput');
 const saveSettings = document.getElementById('saveSettings');
 const cancelSettings = document.getElementById('cancelSettings');
 const contributionGrid = document.getElementById('contributionGrid');
+const contributionStats = document.getElementById('contributionStats');
 
 // Format time display
 function formatTime(seconds) {
@@ -107,23 +108,147 @@ function renderContributionGraph(data) {
   // Get max value for scaling
   const values = Object.values(data);
   const maxValue = Math.max(...values, 1);
+  const totalMinutes = values.reduce((sum, val) => sum + val, 0);
   
-  for (let i = 0; i < 91; i++) {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + i);
-    const dateStr = date.toISOString().split('T')[0];
+  // Calculate week stats
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setDate(today.getDate() - today.getDay());
+  let thisWeekMinutes = 0;
+  
+  // Create weeks structure
+  for (let week = 0; week < 13; week++) {
+    const weekElement = document.createElement('div');
+    weekElement.className = 'contribution-week';
     
-    const dayElement = document.createElement('div');
-    dayElement.className = 'contribution-day';
-    
-    const value = data[dateStr] || 0;
-    if (value > 0) {
-      const level = Math.ceil((value / maxValue) * 4);
-      dayElement.classList.add(`level-${Math.min(level, 4)}`);
+    for (let day = 0; day < 7; day++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + (week * 7) + day);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayElement = document.createElement('div');
+      dayElement.className = 'contribution-day';
+      
+      const value = data[dateStr] || 0;
+      if (value > 0) {
+        const level = Math.ceil((value / maxValue) * 4);
+        dayElement.classList.add(`level-${Math.min(level, 4)}`);
+      }
+      
+      // Check if this day is in current week
+      if (date >= thisWeekStart && date <= today) {
+        thisWeekMinutes += value;
+      }
+      
+      // Add tooltip and hover effects
+      dayElement.addEventListener('mouseenter', (e) => {
+        showTooltip(e, dateStr, value, date);
+        dayElement.style.transform = 'scale(1.2)';
+        dayElement.style.zIndex = '10';
+      });
+      
+      dayElement.addEventListener('mouseleave', (e) => {
+        hideTooltip();
+        dayElement.style.transform = '';
+        dayElement.style.zIndex = '';
+      });
+      
+      // Add click animation
+      dayElement.addEventListener('click', (e) => {
+        dayElement.style.animation = 'pulse 0.3s ease-in-out';
+        setTimeout(() => {
+          dayElement.style.animation = '';
+        }, 300);
+      });
+      
+      weekElement.appendChild(dayElement);
     }
     
-    dayElement.title = `${dateStr}: ${value} minutes`;
-    contributionGrid.appendChild(dayElement);
+    contributionGrid.appendChild(weekElement);
+  }
+  
+  // Update stats
+  updateContributionStats(thisWeekMinutes, totalMinutes);
+}
+
+// Show tooltip for contribution day
+function showTooltip(event, dateStr, value, date) {
+  const tooltip = document.getElementById('contributionTooltip');
+  const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  
+  let message;
+  if (value === 0) {
+    message = `No focus time on ${dayName}, ${monthDay}`;
+  } else if (value < 60) {
+    message = `${value} minutes on ${dayName}, ${monthDay}`;
+  } else {
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    message = `${hours}h ${minutes}m on ${dayName}, ${monthDay}`;
+  }
+  
+  tooltip.textContent = message;
+  tooltip.classList.add('show');
+  
+  // Position tooltip with boundary detection
+  const rect = event.target.getBoundingClientRect();
+  const popupRect = document.querySelector('.container').getBoundingClientRect();
+  
+  // Set initial position
+  tooltip.style.left = `${rect.left + rect.width / 2}px`;
+  tooltip.style.top = `${rect.top - 10}px`;
+  
+  // Wait for tooltip to render to get its dimensions
+  requestAnimationFrame(() => {
+    const tooltipRect = tooltip.getBoundingClientRect();
+    
+    // Check if tooltip goes outside popup boundaries
+    let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
+    let top = rect.top - tooltipRect.height - 10;
+    
+    // Adjust horizontal position if going outside
+    if (left < popupRect.left + 10) {
+      left = popupRect.left + 10;
+    } else if (left + tooltipRect.width > popupRect.right - 10) {
+      left = popupRect.right - tooltipRect.width - 10;
+    }
+    
+    // Adjust vertical position if going outside top
+    if (top < popupRect.top + 10) {
+      top = rect.bottom + 10;
+      // Flip arrow direction when tooltip is below
+      tooltip.classList.add('arrow-up');
+    } else {
+      tooltip.classList.remove('arrow-up');
+    }
+    
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  });
+}
+
+// Hide tooltip
+function hideTooltip() {
+  const tooltip = document.getElementById('contributionTooltip');
+  tooltip.classList.remove('show', 'arrow-up');
+}
+
+// Update contribution statistics
+function updateContributionStats(thisWeekMinutes, totalMinutes) {
+  const statsElement = document.getElementById('contributionStats');
+  
+  if (thisWeekMinutes === 0) {
+    statsElement.textContent = 'No focus time this week';
+  } else if (thisWeekMinutes < 60) {
+    statsElement.textContent = `${thisWeekMinutes} minutes this week`;
+  } else {
+    const hours = Math.floor(thisWeekMinutes / 60);
+    const minutes = thisWeekMinutes % 60;
+    if (minutes === 0) {
+      statsElement.textContent = `${hours}h this week`;
+    } else {
+      statsElement.textContent = `${hours}h ${minutes}m this week`;
+    }
   }
 }
 

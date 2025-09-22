@@ -16,7 +16,19 @@
       background: white;
       border-radius: 12px;
       padding: 24px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, #3b82f6, #10b981, #f59e0b, #ef4444);
     }
 
     .header {
@@ -133,28 +145,208 @@
 
     .contribution-section {
       margin-top: 24px;
-      padding-top: 20px;
+      padding: 20px 16px 16px;
       border-top: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border-radius: 0 0 12px 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .contribution-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #3b82f6, #10b981, #f59e0b);
+    }
+
+    .contribution-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .contribution-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .contribution-stats {
+      font-size: 12px;
+      color: #6b7280;
+      background: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .contribution-container {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e5e7eb;
     }
 
     .contribution-grid {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 2px;
-      margin: 12px 0;
+      grid-template-columns: repeat(13, 1fr);
+      gap: 3px;
+      margin: 8px 0;
+    }
+
+    .contribution-week {
+      display: grid;
+      grid-template-rows: repeat(7, 1fr);
+      gap: 3px;
     }
 
     .contribution-day {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
       background: #ebedf0;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      position: relative;
+      border: 1px solid transparent;
     }
 
-    .contribution-day.level-1 { background: #c6e48b; }
-    .contribution-day.level-2 { background: #7bc96f; }
-    .contribution-day.level-3 { background: #239a3b; }
-    .contribution-day.level-4 { background: #196127; }
+    .contribution-day:hover {
+      transform: scale(1.2);
+      border-color: #374151;
+      z-index: 10;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .contribution-day.level-1 { 
+      background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+      border-color: #10b981;
+    }
+    .contribution-day.level-2 { 
+      background: linear-gradient(135deg, #bbf7d0, #86efac);
+      border-color: #059669;
+    }
+    .contribution-day.level-3 { 
+      background: linear-gradient(135deg, #86efac, #4ade80);
+      border-color: #047857;
+    }
+    .contribution-day.level-4 { 
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      border-color: #065f46;
+    }
+
+    .contribution-legend {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .contribution-legend-scale {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .contribution-legend-item {
+      width: 11px;
+      height: 11px;
+      border-radius: 2px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .tooltip {
+      position: fixed;
+      background: #1f2937;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      max-width: 200px;
+      word-wrap: break-word;
+      white-space: normal;
+      text-align: center;
+    }
+
+    .tooltip::after {
+      content: '';
+      position: absolute;
+      border: 4px solid transparent;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-top-color: #1f2937;
+    }
+
+    .tooltip.arrow-up::after {
+      top: auto;
+      bottom: 100%;
+      border-top-color: transparent;
+      border-bottom-color: #1f2937;
+    }
+
+    .tooltip.show {
+      opacity: 1;
+    }
+
+    /* Animations */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .contribution-section {
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .contribution-day {
+      animation: fadeInUp 0.3s ease-out;
+      animation-fill-mode: both;
+    }
+
+    /* Stagger animation for contribution days */
+    .contribution-week:nth-child(1) .contribution-day { animation-delay: 0.05s; }
+    .contribution-week:nth-child(2) .contribution-day { animation-delay: 0.1s; }
+    .contribution-week:nth-child(3) .contribution-day { animation-delay: 0.15s; }
+    .contribution-week:nth-child(4) .contribution-day { animation-delay: 0.2s; }
+    .contribution-week:nth-child(5) .contribution-day { animation-delay: 0.25s; }
+    .contribution-week:nth-child(6) .contribution-day { animation-delay: 0.3s; }
+    .contribution-week:nth-child(7) .contribution-day { animation-delay: 0.35s; }
+    .contribution-week:nth-child(8) .contribution-day { animation-delay: 0.4s; }
+    .contribution-week:nth-child(9) .contribution-day { animation-delay: 0.45s; }
+    .contribution-week:nth-child(10) .contribution-day { animation-delay: 0.5s; }
+    .contribution-week:nth-child(11) .contribution-day { animation-delay: 0.55s; }
+    .contribution-week:nth-child(12) .contribution-day { animation-delay: 0.6s; }
+    .contribution-week:nth-child(13) .contribution-day { animation-delay: 0.65s; }
 
     .settings-modal {
       display: none;
@@ -229,7 +421,27 @@
       .btn-secondary { background: #4b5563; color: #d1d5db; }
       .btn-secondary:hover { background: #6b7280; }
       .status { color: #9ca3af; }
-      .contribution-section { border-top-color: #4b5563; }
+      .contribution-section { 
+        border-top-color: #4b5563; 
+        background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+      }
+      .contribution-title { color: #f3f4f6; }
+      .contribution-stats { 
+        background: #4b5563; 
+        color: #d1d5db; 
+        border-color: #6b7280; 
+      }
+      .contribution-container { 
+        background: #4b5563; 
+        border-color: #6b7280; 
+      }
+      .contribution-day { background: #374151; border-color: #6b7280; }
+      .contribution-day:hover { border-color: #f3f4f6; }
+      .contribution-legend { color: #9ca3af; }
+      .contribution-legend-item { border-color: #6b7280; }
+      .tooltip { background: #374151; }
+      .tooltip::after { border-top-color: #374151; }
+      .tooltip.arrow-up::after { border-bottom-color: #374151; border-top-color: transparent; }
       .settings-content { background: #374151; }
       .settings-title { color: #f9fafb; }
       .setting-label { color: #d1d5db; }
@@ -285,14 +497,38 @@
     </div>
 
     <div class="contribution-section">
-      <div style="font-size: 14px; font-weight: 500; color: #64748b; margin-bottom: 8px;">
-        Contribution Activity
+      <div class="contribution-header">
+        <div class="contribution-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L19 6.5C18.8 5.9 18.6 5.4 18.3 4.9L19.1 3.4L17.6 1.9L16.1 2.7C15.6 2.4 15.1 2.2 14.5 2L14 0H10L9.5 2C8.9 2.2 8.4 2.4 7.9 2.7L6.4 1.9L4.9 3.4L5.7 4.9C5.4 5.4 5.2 5.9 5 6.5L3 7V9L5 9.5C5.2 10.1 5.4 10.6 5.7 11.1L4.9 12.6L6.4 14.1L7.9 13.3C8.4 13.6 8.9 13.8 9.5 14L10 16H14L14.5 14C15.1 13.8 15.6 13.6 16.1 13.3L17.6 14.1L19.1 12.6L18.3 11.1C18.6 10.6 18.8 10.1 19 9.5L21 9Z"/>
+          </svg>
+          Focus Activity
+        </div>
+        <div class="contribution-stats" id="contributionStats">
+          0 minutes this week
+        </div>
       </div>
-      <div class="contribution-grid" id="contributionGrid">
-        <!-- Generated by JavaScript -->
+      <div class="contribution-container">
+        <div class="contribution-grid" id="contributionGrid">
+          <!-- Generated by JavaScript -->
+        </div>
+        <div class="contribution-legend">
+          <span>Less</span>
+          <div class="contribution-legend-scale">
+            <div class="contribution-legend-item" style="background: #ebedf0;"></div>
+            <div class="contribution-legend-item" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"></div>
+            <div class="contribution-legend-item" style="background: linear-gradient(135deg, #bbf7d0, #86efac);"></div>
+            <div class="contribution-legend-item" style="background: linear-gradient(135deg, #86efac, #4ade80);"></div>
+            <div class="contribution-legend-item" style="background: linear-gradient(135deg, #4ade80, #22c55e);"></div>
+          </div>
+          <span>More</span>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- Tooltip for contribution days -->
+  <div class="tooltip" id="contributionTooltip"></div>
 
   <!-- Settings Modal -->
   <div class="settings-modal" id="settingsModal">
