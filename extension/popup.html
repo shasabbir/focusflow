@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 400px;
+      min-height: 500px;
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #1f2937;
+    }
+
+    .settings-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 6px;
+      color: #6b7280;
+    }
+
+    .settings-btn:hover {
+      background: #f3f4f6;
+    }
+
+    .mode-tabs {
+      display: flex;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 20px;
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+
+    .mode-tab.active {
+      background: white;
+      color: #0f172a;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .timer-display {
+      text-align: center;
+      margin: 40px 0;
+    }
+
+    .time {
+      font-size: 72px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      color: #1f2937;
+      line-height: 1;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin: 30px 0;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+      min-width: 120px;
+      justify-content: center;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+      padding: 12px;
+    }
+
+    .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    .status {
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+      margin: 20px 0;
+    }
+
+    .contribution-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .contribution-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin: 12px 0;
+    }
+
+    .contribution-day {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: #ebedf0;
+    }
+
+    .contribution-day.level-1 { background: #c6e48b; }
+    .contribution-day.level-2 { background: #7bc96f; }
+    .contribution-day.level-3 { background: #239a3b; }
+    .contribution-day.level-4 { background: #196127; }
+
+    .settings-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+    }
+
+    .settings-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+    }
+
+    .settings-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #1f2937;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .setting-label {
+      flex: 1;
+      color: #374151;
+      font-weight: 500;
+    }
+
+    .setting-input {
+      width: 80px;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    .icon {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #1f2937; }
+      .container { background: #374151; }
+      .title, .time { color: #f9fafb; }
+      .mode-tabs { background: #4b5563; }
+      .mode-tab { color: #d1d5db; }
+      .mode-tab.active { background: #6b7280; color: #f9fafb; }
+      .btn-secondary { background: #4b5563; color: #d1d5db; }
+      .btn-secondary:hover { background: #6b7280; }
+      .status { color: #9ca3af; }
+      .contribution-section { border-top-color: #4b5563; }
+      .settings-content { background: #374151; }
+      .settings-title { color: #f9fafb; }
+      .setting-label { color: #d1d5db; }
+      .setting-input { background: #4b5563; border-color: #6b7280; color: #f9fafb; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">FocusFlow</div>
+      <button class="settings-btn" id="settingsBtn">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L19 6.5C18.8 5.9 18.6 5.4 18.3 4.9L19.1 3.4L17.6 1.9L16.1 2.7C15.6 2.4 15.1 2.2 14.5 2L14 0H10L9.5 2C8.9 2.2 8.4 2.4 7.9 2.7L6.4 1.9L4.9 3.4L5.7 4.9C5.4 5.4 5.2 5.9 5 6.5L3 7V9L5 9.5C5.2 10.1 5.4 10.6 5.7 11.1L4.9 12.6L6.4 14.1L7.9 13.3C8.4 13.6 8.9 13.8 9.5 14L10 16H14L14.5 14C15.1 13.8 15.6 13.6 16.1 13.3L17.6 14.1L19.1 12.6L18.3 11.1C18.6 10.6 18.8 10.1 19 9.5L21 9ZM12 8C13.1 8 14 8.9 14 10S13.1 12 12 12S10 11.1 10 10S10.9 8 12 8Z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="focus">Focus</button>
+      <button class="mode-tab" data-mode="shortBreak">Break</button>
+      <button class="mode-tab" data-mode="longBreak">Long Break</button>
+    </div>
+
+    <div class="timer-display">
+      <div class="time" id="timeDisplay">25:00</div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="playPauseBtn">
+        <svg class="icon" viewBox="0 0 24 24" id="playIcon">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <svg class="icon" viewBox="0 0 24 24" id="pauseIcon" style="display: none;">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+        <span id="playPauseText">Start</span>
+      </button>
+      <button class="btn btn-secondary" id="resetBtn" title="Reset Timer">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+      </button>
+      <button class="btn btn-secondary" id="skipBtn" title="Skip to next session">
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="status">
+      <span id="cycleStatus">Completed focus sessions in this cycle: 0</span>
+    </div>
+
+    <div class="contribution-section">
+      <div style="font-size: 14px; font-weight: 500; color: #64748b; margin-bottom: 8px;">
+        Contribution Activity
+      </div>
+      <div class="contribution-grid" id="contributionGrid">
+        <!-- Generated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="settings-modal" id="settingsModal">
+    <div class="settings-content">
+      <div class="settings-title">Timer Settings</div>
+      
+      <div class="setting-row">
+        <label class="setting-label">Focus (minutes)</label>
+        <input type="number" class="setting-input" id="focusInput" min="1" max="120" value="25">
+      </div>
+      
+      <div class="setting-row">
+        <label class="setting-label">Short Break (minutes)</label>
+        <input type="number" class="setting-input" id="shortBreakInput" min="1" max="60" value="5">
+      </div>
+      
+      <div class="setting-row">
+        <label class="setting-label">Long Break (minutes)</label>
+        <input type="number" class="setting-input" id="longBreakInput" min="1" max="60" value="15">
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn btn-secondary" id="cancelSettings">Cancel</button>
+        <button class="btn btn-primary" id="saveSettings">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
