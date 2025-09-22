@@ -85,6 +85,17 @@ async function loadTimerState() {
   }
 }
 
+// Update timer state without reloading contribution data
+async function updateTimerState() {
+  try {
+    const response = await sendMessage('getTimerState');
+    timerState = response;
+    updateUI();
+  } catch (error) {
+    console.error('Error updating timer state:', error);
+  }
+}
+
 // Load contribution data
 async function loadContributionData() {
   try {
@@ -310,6 +321,11 @@ browser.runtime.onMessage.addListener((message) => {
   if (message.type === 'timerUpdate') {
     timerState = message.data;
     updateUI();
+  } else if (message.type === 'focusComplete') {
+    // Focus session completed, update state and reload contribution data
+    timerState = message.data;
+    updateUI();
+    loadContributionData();
   }
 });
 
@@ -330,7 +346,7 @@ document.addEventListener('keydown', (e) => {
 // Update UI every second when popup is open
 setInterval(() => {
   if (timerState.isActive) {
-    loadTimerState();
+    updateTimerState();
   }
 }, 1000);
 

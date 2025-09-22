@@ -103,9 +103,15 @@ function formatTime(seconds) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+// Format time for badge (minutes only)
+function formatTimeBadge(seconds) {
+  const mins = Math.floor(seconds / 60);
+  return mins.toString();
+}
+
 // Update badge with current time
 function updateBadge() {
-  const timeText = formatTime(timer.timeLeft);
+  const timeText = formatTimeBadge(timer.timeLeft);
   browser.browserAction.setBadgeText({ text: timeText });
   
   // Set badge color based on mode
@@ -129,8 +135,9 @@ function updateBadge() {
   const status = timer.isActive ? 'Running' : 'Paused';
   const modeText = timer.mode === 'shortBreak' ? 'Short Break' : 
                    timer.mode === 'longBreak' ? 'Long Break' : 'Focus';
+  const fullTimeText = formatTime(timer.timeLeft);
   browser.browserAction.setTitle({ 
-    title: `FocusFlow - ${modeText} (${status}): ${timeText}` 
+    title: `${modeText} (${status}): ${fullTimeText}` 
   });
 }
 
@@ -197,6 +204,20 @@ function handleTimerEnd() {
     timer.focusCycle++;
     saveSettings();
     saveContribution();
+    
+    // Notify popup that contribution data should be reloaded
+    browser.runtime.sendMessage({
+      type: 'focusComplete',
+      data: {
+        timeLeft: timer.timeLeft,
+        mode: timer.mode,
+        isActive: timer.isActive,
+        focusCycle: timer.focusCycle,
+        settings: timer.settings
+      }
+    }).catch(() => {
+      // Popup might not be open, ignore error
+    });
     
     if (timer.focusCycle % 4 === 0) {
       timer.mode = 'longBreak';
