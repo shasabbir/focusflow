@@ -1,8 +1,5 @@
-// Popup script for FocusFlow extension
-// Firefox compatibility
-if (typeof browser === 'undefined') {
-  var browser = chrome;
-}
+// Popup script for FocusFlow extension (Chrome Manifest V3)
+// Use chrome API directly for Chrome extensions
 
 let timerState = {
   timeLeft: 25 * 60,
@@ -70,7 +67,7 @@ function updateUI() {
 
 // Send message to background script
 function sendMessage(type, data = {}) {
-  return browser.runtime.sendMessage({ type, ...data });
+  return chrome.runtime.sendMessage({ type, ...data });
 }
 
 // Load initial timer state
@@ -317,7 +314,7 @@ settingsModal.addEventListener('click', (e) => {
 });
 
 // Listen for timer updates from background script
-browser.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'timerUpdate') {
     timerState = message.data;
     updateUI();

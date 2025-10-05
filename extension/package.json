@@ -1,7 +1,7 @@
 {
   "name": "focusflow-extension",
   "version": "1.0.0",
-  "description": "Firefox extension for FocusFlow Pomodoro timer",
+  "description": "Chrome extension for FocusFlow Pomodoro timer (Manifest V3)",
   "scripts": {
     "build": "web-ext build",
     "start": "web-ext run",
@@ -15,8 +15,9 @@
     "pomodoro",
     "timer",
     "productivity",
-    "firefox",
-    "extension"
+    "chrome",
+    "extension",
+    "manifest-v3"
   ],
   "author": "FocusFlow",
   "license": "MIT"

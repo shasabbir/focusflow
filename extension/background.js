@@ -1,8 +1,5 @@
-// Background script for FocusFlow extension
-// Firefox compatibility
-if (typeof browser === 'undefined') {
-  var browser = chrome;
-}
+// Background script for FocusFlow extension (Chrome Manifest V3)
+// Use chrome API directly for Chrome extensions
 
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxRLznvfGO_bMX1sMymAbS96Mye-Qd2j7QiBf7CcOGK-tE1M7L7qN4iYXpDks02l-NqlA/exec';
 
@@ -21,15 +18,18 @@ let timer = {
 let timerInterval = null;
 let syncInterval = null;
 
+// Keep service worker alive during timer operation
+let keepAliveInterval = null;
+
 // Initialize extension
-browser.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(() => {
   loadSettings();
   updateBadge();
   startBackgroundSync();
 });
 
 // Initialize on startup
-browser.runtime.onStartup.addListener(() => {
+chrome.runtime.onStartup.addListener(() => {
   loadSettings();
   updateBadge();
   startBackgroundSync();
@@ -38,7 +38,7 @@ browser.runtime.onStartup.addListener(() => {
 // Load settings from storage
 async function loadSettings() {
   try {
-    const result = await browser.storage.local.get(['pomodoroSettings', 'pomodoroCycle']);
+    const result = await chrome.storage.local.get(['pomodoroSettings', 'pomodoroCycle']);
     if (result.pomodoroSettings) {
       timer.settings = result.pomodoroSettings;
     }
@@ -71,7 +71,7 @@ async function syncWithBackend() {
         longBreak: remoteSettings.longBreak / 60,
       };
       timer.settings = newSettings;
-      await browser.storage.local.set({ pomodoroSettings: newSettings });
+      await chrome.storage.local.set({ pomodoroSettings: newSettings });
       resetTimer();
       
       // Notify popup of settings update
@@ -82,10 +82,10 @@ async function syncWithBackend() {
     
     if (historyResponse.ok) {
       const historyData = await historyResponse.json();
-      await browser.storage.local.set({ pomodoroHistory: historyData });
+      await chrome.storage.local.set({ pomodoroHistory: historyData });
       
       // Notify popup that contribution data has been updated
-      browser.runtime.sendMessage({
+      chrome.runtime.sendMessage({
         type: 'contributionUpdate'
       }).catch(() => {
         // Popup might not be open, ignore error
@@ -126,7 +126,7 @@ function stopBackgroundSync() {
 // Save settings to storage
 async function saveSettings() {
   try {
-    await browser.storage.local.set({
+    await chrome.storage.local.set({
       pomodoroSettings: timer.settings,
       pomodoroCycle: timer.focusCycle
     });
@@ -151,7 +151,7 @@ function formatTimeBadge(seconds) {
 // Update badge with current time
 function updateBadge() {
   const timeText = formatTimeBadge(timer.timeLeft);
-  browser.browserAction.setBadgeText({ text: timeText });
+  chrome.action.setBadgeText({ text: timeText });
   
   // Set badge color based on mode
   let color;
@@ -168,14 +168,14 @@ function updateBadge() {
     default:
       color = '#6b7280'; // gray
   }
-  browser.browserAction.setBadgeBackgroundColor({ color });
+  chrome.action.setBadgeBackgroundColor({ color });
   
   // Update title with current status
   const status = timer.isActive ? 'Running' : 'Paused';
   const modeText = timer.mode === 'shortBreak' ? 'Short Break' : 
                    timer.mode === 'longBreak' ? 'Long Break' : 'Focus';
   const fullTimeText = formatTime(timer.timeLeft);
-  browser.browserAction.setTitle({ 
+  chrome.action.setTitle({ 
     title: `${modeText} (${status}): ${fullTimeText}` 
   });
 }
@@ -189,6 +189,9 @@ function startTimer() {
   timer.isActive = true;
   // Stop background sync while timer is running
   stopBackgroundSync();
+  
+  // Keep service worker alive during timer
+  startKeepAlive();
   
   timerInterval = setInterval(() => {
     timer.timeLeft--;
@@ -211,6 +214,9 @@ function pauseTimer() {
     timerInterval = null;
   }
   
+  // Stop keeping service worker alive
+  stopKeepAlive();
+  
   // Restart background sync when timer is paused
   startBackgroundSync();
   
@@ -225,6 +231,9 @@ function resetTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
+  
+  // Stop keeping service worker alive
+  stopKeepAlive();
   
   switch (timer.mode) {
     case 'focus':
@@ -252,7 +261,7 @@ function handleTimerEnd() {
     saveContribution();
     
     // Notify popup that contribution data should be reloaded
-    browser.runtime.sendMessage({
+    chrome.runtime.sendMessage({
       type: 'focusComplete',
       data: {
         timeLeft: timer.timeLeft,
@@ -289,10 +298,10 @@ async function saveContribution() {
   const focusDuration = timer.settings.focus;
   
   try {
-    const result = await browser.storage.local.get(['pomodoroHistory']);
+    const result = await chrome.storage.local.get(['pomodoroHistory']);
     const history = result.pomodoroHistory || {};
     history[today] = (history[today] || 0) + focusDuration;
-    await browser.storage.local.set({ pomodoroHistory: history });
+    await chrome.storage.local.set({ pomodoroHistory: history });
     
     // Sync with backend
     fetch(`${APPS_SCRIPT_URL}?action=incrementHistory&key=${today}&value=${focusDuration}`)
@@ -305,7 +314,7 @@ async function saveContribution() {
 
 // Show notification
 function showNotification(title, message) {
-  browser.notifications.create({
+  chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icons/icon-48.png',
     title: title,
@@ -345,7 +354,7 @@ function updateSettings(newSettings) {
 // Notify popup of state changes
 function notifyPopup() {
   // Send message to popup if it's open
-  browser.runtime.sendMessage({
+  chrome.runtime.sendMessage({
     type: 'timerUpdate',
     data: {
       timeLeft: timer.timeLeft,
@@ -360,7 +369,7 @@ function notifyPopup() {
 }
 
 // Handle messages from popup
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'getTimerState':
       sendResponse({
@@ -403,7 +412,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
       
     case 'getContributionData':
-      browser.storage.local.get(['pomodoroHistory']).then(result => {
+      chrome.storage.local.get(['pomodoroHistory']).then(result => {
         sendResponse({ data: result.pomodoroHistory || {} });
       });
       return true; // Indicates we will send a response asynchronously
@@ -412,6 +421,27 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ error: 'Unknown message type' });
   }
 });
+
+// Keep service worker alive during timer operation
+function startKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+  
+  // Send a message to self every 20 seconds to keep service worker alive
+  keepAliveInterval = setInterval(() => {
+    chrome.runtime.sendMessage({ type: 'keepAlive' }).catch(() => {
+      // Ignore errors - this is just to keep the service worker alive
+    });
+  }, 20000);
+}
+
+function stopKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+  }
+}
 
 // Initialize on startup
 loadSettings();
