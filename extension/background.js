@@ -19,17 +19,20 @@ let timer = {
 };
 
 let timerInterval = null;
+let syncInterval = null;
 
 // Initialize extension
 browser.runtime.onInstalled.addListener(() => {
   loadSettings();
   updateBadge();
+  startBackgroundSync();
 });
 
 // Initialize on startup
 browser.runtime.onStartup.addListener(() => {
   loadSettings();
   updateBadge();
+  startBackgroundSync();
 });
 
 // Load settings from storage
@@ -54,6 +57,7 @@ async function loadSettings() {
 // Sync data with the backend
 async function syncWithBackend() {
   try {
+    console.log('Syncing with backend API...');
     const [settingsResponse, historyResponse] = await Promise.all([
       fetch(`${APPS_SCRIPT_URL}?action=getAllDurations`),
       fetch(`${APPS_SCRIPT_URL}?action=getHistory`)
@@ -69,6 +73,9 @@ async function syncWithBackend() {
       timer.settings = newSettings;
       await browser.storage.local.set({ pomodoroSettings: newSettings });
       resetTimer();
+      
+      // Notify popup of settings update
+      notifyPopup();
     } else {
       console.error("Failed to fetch settings, using local/default.");
     }
@@ -76,11 +83,43 @@ async function syncWithBackend() {
     if (historyResponse.ok) {
       const historyData = await historyResponse.json();
       await browser.storage.local.set({ pomodoroHistory: historyData });
+      
+      // Notify popup that contribution data has been updated
+      browser.runtime.sendMessage({
+        type: 'contributionUpdate'
+      }).catch(() => {
+        // Popup might not be open, ignore error
+      });
     } else {
       console.error("Failed to fetch contribution history.");
     }
+    
+    console.log('Background sync completed successfully');
   } catch (error) {
     console.error('Failed to sync data with backend', error);
+  }
+}
+
+// Start background sync when timer is not running
+function startBackgroundSync() {
+  if (syncInterval) {
+    clearInterval(syncInterval);
+  }
+  
+  // Sync every minute when timer is not active
+  syncInterval = setInterval(() => {
+    if (!timer.isActive) {
+      console.log('Background sync: Fetching latest data from API...');
+      syncWithBackend();
+    }
+  }, 60000); // 60 seconds = 1 minute
+}
+
+// Stop background sync
+function stopBackgroundSync() {
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
   }
 }
 
@@ -148,6 +187,9 @@ function startTimer() {
   }
   
   timer.isActive = true;
+  // Stop background sync while timer is running
+  stopBackgroundSync();
+  
   timerInterval = setInterval(() => {
     timer.timeLeft--;
     updateBadge();
@@ -168,6 +210,10 @@ function pauseTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
+  
+  // Restart background sync when timer is paused
+  startBackgroundSync();
+  
   updateBadge();
   notifyPopup();
 }
@@ -232,6 +278,9 @@ function handleTimerEnd() {
   }
   
   resetTimer();
+  
+  // Restart background sync after timer ends
+  startBackgroundSync();
 }
 
 // Save contribution data

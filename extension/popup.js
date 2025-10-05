@@ -326,6 +326,9 @@ browser.runtime.onMessage.addListener((message) => {
     timerState = message.data;
     updateUI();
     loadContributionData();
+  } else if (message.type === 'contributionUpdate') {
+    // Background sync updated contribution data
+    loadContributionData();
   }
 });
 
